@@ -2,7 +2,7 @@ import datetime
 
 from django.conf import settings
 from django.db import models
-from django.contrib import auth
+from django.contrib.auth.models import User, Group
 from django.utils.translation import ugettext as _, ungettext, ugettext_lazy
 
 from paypal.standard import ipn
@@ -14,7 +14,7 @@ class Transaction(models.Model):
     timestamp = models.DateTimeField(auto_now_add=True, editable=False)
     subscription = models.ForeignKey('subscription.Subscription',
                                      null=True, blank=True, editable=False)
-    user = models.ForeignKey(auth.models.User,
+    user = models.ForeignKey(User,
                              null=True, blank=True, editable=False)
     ipn = models.ForeignKey(PayPalIPN,
                             null=True, blank=True, editable=False)
@@ -53,7 +53,7 @@ class Subscription(models.Model):
     recurrence_unit = models.CharField(max_length=1, null=True,
                                        choices = ((None, ugettext_lazy("No recurrence")),)
                                        + _TIME_UNIT_CHOICES)
-    group = models.ForeignKey(auth.models.Group, null=False, blank=False)
+    group = models.ForeignKey(Group, null=False, blank=False)
 
     _PLURAL_UNITS = {
         'D': 'days',
@@ -117,7 +117,7 @@ def __user_get_subscription(user):
         if sl: user._subscription_cache = sl[0]
         else: user._subscription_cache = None
     return user._subscription_cache
-auth.models.User.add_to_class('get_subscription', __user_get_subscription)
+User.add_to_class('get_subscription', __user_get_subscription)
 
 
 class ActiveUSManager(models.Manager):
@@ -126,7 +126,7 @@ class ActiveUSManager(models.Manager):
         return super(ActiveUSManager, self).get_query_set().filter(active=True)
 
 class UserSubscription(models.Model):
-    user = models.ForeignKey(auth.models.User)
+    user = models.ForeignKey(User)
     subscription = models.ForeignKey(Subscription)
     expires = models.DateField(null = True, default=datetime.date.today)
     active = models.BooleanField(default=True)
@@ -257,8 +257,8 @@ def _ipn_usersubscription(payment):
     try: s = Subscription.objects.get(id=payment.item_number)
     except Subscription.DoesNotExist: s = None
 
-    try: u = auth.models.User.objects.get(id=payment.custom)
-    except auth.models.User.DoesNotExist: u = None
+    try: u = User.objects.get(id=payment.custom)
+    except User.DoesNotExist: u = None
 
     if u and s:
         try: us = UserSubscription.objects.get(subscription=s, user=u)
