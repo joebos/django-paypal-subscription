@@ -46,7 +46,7 @@ class Subscription(models.Model):
     description = models.TextField(blank=True)
     price = models.DecimalField(max_digits=64, decimal_places=2)
     trial_period = models.PositiveIntegerField(null=True, blank=True)
-    trial_unit = models.CharField(max_length=1, null=True,
+    trial_unit = models.CharField(max_length=1, null=True, blank=True,
                                        choices = ((None, ugettext_lazy("No trial")),)
                                        + _TIME_UNIT_CHOICES)
     recurrence_period = models.PositiveIntegerField(null=True, blank=True)
