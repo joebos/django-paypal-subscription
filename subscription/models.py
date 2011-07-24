@@ -253,12 +253,20 @@ def _ipn_usersubscription(payment):
         def __init__(self, user, subscription):
             self.user = user
             self.subscription = subscription
+    
+    s = None
+    try:
+        if payment.item_number:
+            s = Subscription.objects.get(id=payment.item_number)
+    except Subscription.DoesNotExist:
+        pass
 
-    try: s = Subscription.objects.get(id=payment.item_number)
-    except Subscription.DoesNotExist: s = None
-
-    try: u = auth.models.User.objects.get(id=payment.custom)
-    except auth.models.User.DoesNotExist: u = None
+    u = None
+    try:
+        if payment.custom:
+            u = auth.models.User.objects.get(id=payment.custom)
+    except auth.models.User.DoesNotExist:
+        pass
 
     if u and s:
         try: us = UserSubscription.objects.get(subscription=s, user=u)
