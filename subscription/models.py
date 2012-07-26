@@ -377,6 +377,7 @@ def handle_subscription_cancel(sender, **kwargs):
                         event='remove subscription (cancelled)', amount=sender.mc_gross
                         ).save()
         else:
+            us.unsubscribe()
             us.cancelled = True
             us.save()
             Transaction(user=u, subscription=s, ipn=sender,
