@@ -166,12 +166,16 @@ class UserSubscription(models.Model):
     def unsubscribe(self):
         """Unsubscribe user."""
         self.user.groups.remove(self.subscription.group)
+        self.active = False
         self.user.save()
+        self.save()
 
     def subscribe(self):
         """Subscribe user."""
         self.user.groups.add(self.subscription.group)
+        self.active = True
         self.user.save()
+        self.save()
 
     def fix(self):
         """Fix group membership if not valid()."""
