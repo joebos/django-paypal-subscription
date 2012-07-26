@@ -3,6 +3,7 @@ import datetime
 from django.conf import settings
 from django.db import models
 from django.contrib import auth
+import django.contrib.auth.models
 from django.utils.translation import ugettext as _, ungettext, ugettext_lazy
 
 import paypal.standard.ipn.models as ipn_models
@@ -14,7 +15,7 @@ class Transaction(models.Model):
     timestamp = models.DateTimeField(auto_now_add=True, editable=False)
     subscription = models.ForeignKey('subscription.Subscription',
                                      null=True, blank=True, editable=False)
-    user = models.ForeignKey(auth.models.User,
+    user = models.ForeignKey(django.contrib.auth.models.User,
                              null=True, blank=True, editable=False)
     ipn = models.ForeignKey(ipn_models.PayPalIPN,
                             null=True, blank=True, editable=False)
@@ -240,7 +241,7 @@ def unsubscribe_expired():
     Loops through all UserSubscription objects with `expires' field
     earlier than datetime.date.today() and forces correct group
     membership."""
-    for us in UserSubscription.objects.get(expires__lt=datetime.date.today()):
+    for us in UserSubscription.objects.filter(expires__lt=datetime.date.today()):
         us.fix()
 
 #### Handle PayPal signals
