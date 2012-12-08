@@ -2,11 +2,12 @@ import datetime
 
 from django.conf import settings
 from django.db import models
-from django.contrib.auth.models import User, Group
+from django.contrib import auth
+import django.contrib.auth.models
 from django.utils.translation import ugettext as _, ungettext, ugettext_lazy
 
-from paypal.standard import ipn
-from paypal.standard.ipn.models import PayPalIPN
+import paypal.standard.ipn.models as ipn_models
+import paypal.standard.ipn.signals as ipn_signals
 
 import signals, utils
 
@@ -14,9 +15,9 @@ class Transaction(models.Model):
     timestamp = models.DateTimeField(auto_now_add=True, editable=False)
     subscription = models.ForeignKey('subscription.Subscription',
                                      null=True, blank=True, editable=False)
-    user = models.ForeignKey(User,
+    user = models.ForeignKey(django.contrib.auth.models.User,
                              null=True, blank=True, editable=False)
-    ipn = models.ForeignKey(PayPalIPN,
+    ipn = models.ForeignKey(ipn_models.PayPalIPN,
                             null=True, blank=True, editable=False)
     event = models.CharField(max_length=100, editable=False)
     amount = models.DecimalField(max_digits=64, decimal_places=2,
@@ -46,7 +47,7 @@ class Subscription(models.Model):
     description = models.TextField(blank=True)
     price = models.DecimalField(max_digits=64, decimal_places=2)
     trial_period = models.PositiveIntegerField(null=True, blank=True)
-    trial_unit = models.CharField(max_length=1, null=True,
+    trial_unit = models.CharField(max_length=1, null=True, blank=True,
                                        choices = ((None, ugettext_lazy("No trial")),)
                                        + _TIME_UNIT_CHOICES)
     recurrence_period = models.PositiveIntegerField(null=True, blank=True)
@@ -165,12 +166,16 @@ class UserSubscription(models.Model):
     def unsubscribe(self):
         """Unsubscribe user."""
         self.user.groups.remove(self.subscription.group)
+        self.active = False
         self.user.save()
+        self.save()
 
     def subscribe(self):
         """Subscribe user."""
         self.user.groups.add(self.subscription.group)
+        self.active = True
         self.user.save()
+        self.save()
 
     def fix(self):
         """Fix group membership if not valid()."""
@@ -241,7 +246,7 @@ def unsubscribe_expired():
     Loops through all UserSubscription objects with `expires' field
     earlier than datetime.date.today() and forces correct group
     membership."""
-    for us in UserSubscription.objects.get(expires__lt=datetime.date.today()):
+    for us in UserSubscription.objects.filter(expires__lt=datetime.date.today()):
         us.fix()
 
 #### Handle PayPal signals
@@ -253,7 +258,6 @@ def _ipn_usersubscription(payment):
         def __init__(self, user, subscription):
             self.user = user
             self.subscription = subscription
-
     try: s = Subscription.objects.get(id=payment.item_number)
     except Subscription.DoesNotExist: s = None
 
@@ -267,7 +271,7 @@ def _ipn_usersubscription(payment):
             Transaction(user=u, subscription=s, ipn=payment,
                         event='new usersubscription', amount=payment.mc_gross
                         ).save()
-    else: us = PseudoUS(user=u,subscription=s) 
+    else: us = PseudoUS(user=u,subscription=s)
 
     return us
 
@@ -338,7 +342,7 @@ def handle_payment_was_successful(sender, **kwargs):
                     event='unexpected payment', amount=sender.mc_gross
                     ).save()
         signals.event.send(s, ipn=sender, subscription=s, user=u, event='unexpected_payment')
-ipn.signals.payment_was_successful.connect(handle_payment_was_successful)
+ipn_signals.payment_was_successful.connect(handle_payment_was_successful)
 
 def handle_payment_was_flagged(sender, **kwargs):
     us = _ipn_usersubscription(sender)
@@ -347,7 +351,7 @@ def handle_payment_was_flagged(sender, **kwargs):
                 event='payment flagged', amount=sender.mc_gross
                 ).save()
     signals.event.send(s, ipn=sender, subscription=s, user=u, event='flagged')
-ipn.signals.payment_was_flagged.connect(handle_payment_was_flagged)
+ipn_signals.payment_was_flagged.connect(handle_payment_was_flagged)
 
 def handle_subscription_signup(sender, **kwargs):
     us = _ipn_usersubscription(sender)
@@ -386,7 +390,7 @@ def handle_subscription_signup(sender, **kwargs):
                     ).save()
         signals.event.send(s, ipn=sender, subscription=s, user=u,
                            event='unexpected_subscription')
-ipn.signals.subscription_signup.connect(handle_subscription_signup)
+ipn_signals.subscription_signup.connect(handle_subscription_signup)
 
 def handle_subscription_cancel(sender, **kwargs):
     us = _ipn_usersubscription(sender)
@@ -399,6 +403,7 @@ def handle_subscription_cancel(sender, **kwargs):
                         event='remove subscription (cancelled)', amount=sender.mc_gross
                         ).save()
         else:
+            us.unsubscribe()
             us.cancelled = True
             us.save()
             Transaction(user=u, subscription=s, ipn=sender,
@@ -413,8 +418,8 @@ def handle_subscription_cancel(sender, **kwargs):
                     event='unexpected cancel', amount=sender.mc_gross
                     ).save()
         signals.event.send(s, ipn=sender, subscription=s, user=u, event='unexpected_cancel')
-ipn.signals.subscription_cancel.connect(handle_subscription_cancel)
-ipn.signals.subscription_eot.connect(handle_subscription_cancel)
+ipn_signals.subscription_cancel.connect(handle_subscription_cancel)
+ipn_signals.subscription_eot.connect(handle_subscription_cancel)
 
 def handle_subscription_modify(sender, **kwargs):
     us = _ipn_usersubscription(sender)
@@ -439,11 +444,11 @@ def handle_subscription_modify(sender, **kwargs):
                     ).save()
 
         signals.subscribed.send(s, ipn=sender, subscription=s, user=u,
-                                usersubscription=us)
+                                usersubrianmacdonaldbscription=us)
     else:
         Transaction(user=u, subscription=u, ipn=sender,
                     event='unexpected subscription modify', amount=sender.mc_gross
                     ).save()
         signals.event.send(s, ipn=sender, subscription=s, user=u,
                            event='unexpected_subscription_modify')
-ipn.signals.subscription_modify.connect(handle_subscription_modify)
+ipn_signals.subscription_modify.connect(handle_subscription_modify)

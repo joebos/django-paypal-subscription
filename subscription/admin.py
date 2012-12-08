@@ -33,7 +33,7 @@ class UserSubscriptionAdminForm(forms.ModelForm):
     extend_subscription = forms.fields.BooleanField(required=False)
 
 class UserSubscriptionAdmin(admin.ModelAdmin):
-    list_display = ( '__unicode__', _user, _subscription, 'active', 'expires', 'valid' )
+    list_display = ( '__unicode__', _user, _subscription, 'active', 'expires', 'valid' , 'cancelled')
     list_display_links = ( '__unicode__', )
     list_filter = ('active', 'subscription', )
     date_hierarchy = 'expires'
