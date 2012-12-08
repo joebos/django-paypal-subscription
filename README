@@ -252,7 +252,7 @@ Table of Contents
   Templates `subscription/subscription_done.html' and
   `subscription/subscription_cancel.html' receive no context.
 
-  Template `subscription/subscription_change_dane.html' receives
+  Template `subscription/subscription_change_done.html' receives
   `cancel_url' parameter, which is URL to PayPal list of transactions
   with site's merchant account, making it easier to cancel the old
   subscription.

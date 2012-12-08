@@ -47,7 +47,7 @@ class Subscription(models.Model):
     description = models.TextField(blank=True)
     price = models.DecimalField(max_digits=64, decimal_places=2)
     trial_period = models.PositiveIntegerField(null=True, blank=True)
-    trial_unit = models.CharField(max_length=1, null=True,
+    trial_unit = models.CharField(max_length=1, null=True, blank=True,
                                        choices = ((None, ugettext_lazy("No trial")),)
                                        + _TIME_UNIT_CHOICES)
     recurrence_period = models.PositiveIntegerField(null=True, blank=True)
@@ -239,6 +239,7 @@ class UserSubscription(models.Model):
             rv += u' (expired)'
         return rv
 
+#This should work once per day with a cronjob
 def unsubscribe_expired():
     """Unsubscribes all users whose subscription has expired.
 
@@ -257,12 +258,20 @@ def _ipn_usersubscription(payment):
         def __init__(self, user, subscription):
             self.user = user
             self.subscription = subscription
+    
+    s = None
+    try:
+        if payment.item_number:
+            s = Subscription.objects.get(id=payment.item_number)
+    except Subscription.DoesNotExist:
+        pass
 
-    try: s = Subscription.objects.get(id=payment.item_number)
-    except Subscription.DoesNotExist: s = None
-
-    try: u = auth.models.User.objects.get(id=payment.custom)
-    except auth.models.User.DoesNotExist: u = None
+    u = None
+    try:
+        if payment.custom:
+            u = auth.models.User.objects.get(id=payment.custom)
+    except auth.models.User.DoesNotExist:
+        pass
 
     if u and s:
         try: us = UserSubscription.objects.get(subscription=s, user=u)
@@ -298,13 +307,39 @@ def handle_payment_was_successful(sender, **kwargs):
                                    usersubscription=us, event='incorrect payment')
         else:
             if sender.mc_gross == s.price:
-                us.extend()
-                us.save()
-                Transaction(user=u, subscription=s, ipn=sender,
-                            event='subscription payment', amount=sender.mc_gross
-                            ).save()
-                signals.paid.send(s, ipn=sender, subscription=s, user=u,
-                                  usersubscription=us)
+                if sender.payment_status == 'Pending':
+                    Transaction(user=u, subscription=s, ipn=sender,
+                                event='payment pending', amount=sender.mc_gross
+                                ).save()
+                    # Save the new inactive, not extended subscription!
+                    # The "extend action" will take effect when the money will be approved!
+                    us.save()
+                    signals.event.send(s, ipn=sender, subscription=s, user=u, event='pending')
+                elif sender.payment_status == 'Completed':
+                    us.extend()
+                    us.save()
+                    Transaction(user=u, subscription=s, ipn=sender,
+                                event='subscription payment', amount=sender.mc_gross
+                                ).save()
+                    signals.paid.send(s, ipn=sender, subscription=s, user=u,
+                                      usersubscription=us)
+                else:
+                    # TODO: Handle the other payment status types appropriately
+#                     (sender.payment_status == 'Active' or 
+#                      sender.payment_status == 'Cancelled' or
+#                      sender.payment_status == 'Cleared' or
+#                      sender.payment_status == 'Denied' or
+#                      sender.payment_status == 'Paid' or
+#                      sender.payment_status == 'Processed' or
+#                      sender.payment_status == 'Refused' or
+#                      sender.payment_status == 'Reversed' or
+#                      sender.payment_status == 'Rewarded' or
+#                      sender.payment_status == 'Unclaimed' or
+#                      sender.payment_status == 'Uncleared'):
+                    Transaction(user=u, subscription=s, ipn=sender,
+                                event='payment strange status', amount=sender.mc_gross
+                                ).save()
+                    signals.event.send(s, ipn=sender, subscription=s, user=u, event='strange_status')
             else:
                 Transaction(user=u, subscription=s, ipn=sender,
                             event='incorrect payment', amount=sender.mc_gross
