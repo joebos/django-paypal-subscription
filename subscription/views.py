@@ -88,7 +88,7 @@ def _paypal_form(subscription, user, upgrade_subscription=False, **extra_args):
 
 def subscription_list(request):
     return direct_to_template(
-        request, template='subscription/subscription_list.html',
+        request, template='subscription_list.html',
         extra_context=dict(
             object_list = Subscription.objects.all()))
 
