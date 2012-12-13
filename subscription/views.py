@@ -45,8 +45,8 @@ def _paypal_form_args(upgrade_subscription=False, **kwargs):
                **kwargs)
     return rv
 
-def _paypal_form(subscription, user, upgrade_subscription=False, **extra_args):
-    if not user.is_authenticated: return None
+def _paypal_form  (subscription, user, upgrade_subscription=False, **extra_args):
+    # if not user.is_authenticated: return None
 
     if subscription.recurrence_unit:
         if not subscription.trial_unit:
@@ -138,7 +138,7 @@ def subscription_detail(request, object_id, payment_method="standard"):
         return o.proceed()
     
     elif payment_method == 'standard':
-        return direct_to_template(request, template='subscription/subscription_detail.html',\
+        return direct_to_template(request, template='subscription_detail.html',\
                                   extra_context=dict(object=s, usersubscription=s_us,\
                                   change_denied_reasons=change_denied_reasons,\
                                   form=form, cancel_url=cancel_url))
