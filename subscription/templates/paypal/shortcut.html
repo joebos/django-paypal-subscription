@@ -1,0 +1,28 @@
+{% load i18n  %}
+{% if current %}
+  {% if not current.active %}
+    {% if test %}
+    {{ form.sandbox }}
+    {% else %}
+    {{ form.render }}
+    {% endif %}
+  {% else %}
+    <a href="{{ cancel_url }}"> <img src="{{ image_url }}"></a>
+  {% endif %}
+{% else %}
+  {% if change_denied_reasons %}
+    <p><strong>{% trans "You cannot switch to this plan." %}</strong> {% trans "Reasons" %}:
+    <ul>
+    {% for reason in change_denied_reasons %}
+      <li>{{ reason }}</li>
+    {% endfor %}
+    </ul>
+  {% else %}
+    {% if test %}
+      {{ form.sandbox }}
+    {% else %}
+      {{ form.render }}
+    {% endif %}
+  {% endif %}
+
+{% endif %}

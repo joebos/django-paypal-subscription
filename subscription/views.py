@@ -8,8 +8,11 @@ from django.core.urlresolvers import reverse
 from django.db import transaction
 from django.http import HttpResponseRedirect
 from django.shortcuts import render_to_response, get_object_or_404
-from django.views.generic.list_detail import object_list
-from django.views.generic.simple import direct_to_template
+#from django.views.generic.list_detail import object_list
+from django.views.generic import TemplateView
+from django.shortcuts import render_to_response
+from django.template import RequestContext
+
 from django.dispatch import Signal
 
 _formclass = getattr(settings, 'SUBSCRIPTION_PAYPAL_FORM', 'paypal.standard.forms.PayPalPaymentsForm')
@@ -23,9 +26,9 @@ get_paypal_extra_args = Signal(providing_args=['user', 'subscription', 'extra_ar
 
 # http://paypaldeveloper.com/pdn/board/message?board.id=basicpayments&message.id=621
 if settings.PAYPAL_TEST:
-    cancel_url = 'https://www.sandbox.paypal.com/cgi-bin/webscr?cmd=_subscr-find&alias=%s' % urllib.quote(settings.PAYPAL_RECEIVER_EMAIL)
+    cancel_url = 'https://www.sandbox.paypal.com/cgi-bin/webscr?cmd=_subscr-find&alias=%s' % urllib.quote(settings.PAYPAL_PAYER_ID)
 else:
-    cancel_url = 'https://www.paypal.com/cgi-bin/webscr?cmd=_subscr-find&alias=%s' % urllib.quote(settings.PAYPAL_RECEIVER_EMAIL)
+    cancel_url = 'https://www.paypal.com/cgi-bin/webscr?cmd=_subscr-find&alias=%s' % urllib.quote(settings.PAYPAL_PAYER_ID)
 
 # https://cms.paypal.com/us/cgi-bin/?cmd=_render-content&content_ID=developer/e_howto_html_Appx_websitestandard_htmlvariables
 
@@ -35,13 +38,15 @@ def _paypal_form_args(upgrade_subscription=False, **kwargs):
         if not rel.startswith('/'): rel = '/'+rel
         return 'http://%s%s' % ( Site.objects.get_current().domain, rel )
 
-    if upgrade_subscription: returl = reverse('subscription_change_done')
-    else: returl = reverse('subscription_done')
+    if upgrade_subscription: returl = reverse('paypal:subscription_change_done')
+    else: returl = reverse('paypal:subscription_done')
 
     rv = settings.SUBSCRIPTION_PAYPAL_SETTINGS.copy()
-    rv.update( notify_url = _url(reverse('paypal-ipn')),
+    rv.update(
+#        notify_url = _url(reverse('paypal-ipn')),
+        notify_url = "http://98.110.156.2:2000/paypal/ipn/",
                return_url = _url(returl),
-               cancel_return = _url(reverse("subscription_cancel")),
+               cancel_return = _url(reverse("paypal:subscription_cancel")),
                **kwargs)
     return rv
 
@@ -86,11 +91,50 @@ def _paypal_form  (subscription, user, upgrade_subscription=False, **extra_args)
                 custom = user.id,
                 amount=subscription.price))
 
+@login_required
 def subscription_list(request):
-    return direct_to_template(
-        request, template='subscription_list.html',
-        extra_context=dict(
-            object_list = Subscription.objects.all()))
+    try:
+        us = request.user.usersubscription_set.get(
+            active=True)
+    except UserSubscription.DoesNotExist:
+        us = None
+
+    return render_to_response('subscription/subscription_list.html', {"object_list" : Subscription.objects.all(), "us": us}, context_instance=RequestContext(request))
+
+
+@login_required
+def account(request):
+    try:
+        us = request.user.usersubscription_set.get(
+            active=True)
+    except UserSubscription.DoesNotExist:
+        us = None
+
+    return render_to_response(
+        'subscription/account.html',
+        {
+            "object_list" : Subscription.objects.all(),
+            "user_subscription": us,
+            "cancel_url": cancel_url
+        },
+        context_instance=RequestContext(request))
+
+
+@login_required
+def subscribe(request):
+    try:
+        us = request.user.usersubscription_set.get(
+            active=True)
+    except UserSubscription.DoesNotExist:
+        us = None
+
+    current_plan_price = 0
+
+    if us is not None:
+        current_plan_price = us.subscription.price
+
+    return render_to_response('subscription/subscribe_form.html', {"object_list" : Subscription.objects.all(), "us": us, "current_plan_price": current_plan_price}, context_instance=RequestContext(request))
+
 
 @login_required
 def subscription_detail(request, object_id, payment_method="standard"):
@@ -132,16 +176,25 @@ def subscription_detail(request, object_id, payment_method="standard"):
                 "payment_template": "payment.html",      # template name for payment
                 "confirm_template": "confirmation.html", # template name for confirmation
                 "success_url": reverse('subscription_done')}              # redirect location after success
-        
+
         o = PaymentMethodFactory.factory('WebsitePaymentsPro', data=data, request=request)
         # We return o.proceed() just because django-paypal's PayPalPro returns HttpResponse object
         return o.proceed()
     
     elif payment_method == 'standard':
-        return direct_to_template(request, template='subscription_detail.html',\
-                                  extra_context=dict(object=s, usersubscription=s_us,\
-                                  change_denied_reasons=change_denied_reasons,\
-                                  form=form, cancel_url=cancel_url))
+        return render_to_response('subscription/subscription_detail.html',
+            {"object":s,
+             "usersubscription": s_us,
+             'change_denied_reasons': change_denied_reasons,
+             "current": s_us and (s == s_us.subscription),
+                "change_denied_reasons": change_denied_reasons,
+                "form":form,
+                "cancel_url": cancel_url,
+                "test": settings.PAYPAL_TEST,
+                'image_url': "https://www.paypal.com/en_US/i/btn/btn_unsubscribe_LG.gif"
+            },
+            context_instance=RequestContext(request),
+            )
     else:
         #should never get here
         raise Http404

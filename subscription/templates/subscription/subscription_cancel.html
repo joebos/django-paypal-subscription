@@ -1,0 +1,7 @@
+{% extends "account_tmpl.html" %}
+{% load i18n %}
+{% block title %}{% trans "Subscription cancelled." %}{% endblock %} 
+{% block body %}
+{% url subscription_list as subscription_url %}
+{% blocktrans %}Subscription process cancelled. <a href="{{ subscription_url }}">Back to subscription list</a>.{% endblocktrans %}
+{% endblock %}

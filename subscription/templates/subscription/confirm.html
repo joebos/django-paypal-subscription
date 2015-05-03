@@ -1,0 +1,15 @@
+{% extends "account_tmpl.html" %}
+{% load i18n uni_form_tags %}
+
+{% block title %}{% trans 'Payment confirm' %}{% endblock %} 
+
+{% block content %}
+<form class="uniForm" enctype="multipart/form-data" action="" method="post">
+    <fieldset class="inlineLabels">
+      {{ form|as_uni_form }}
+      <div class="submit form_block buttonHolder">
+        <input type="submit" value="{% trans 'confirm' %}" />
+      </div>
+    </fieldset>
+</form>
+{% endblock %}
