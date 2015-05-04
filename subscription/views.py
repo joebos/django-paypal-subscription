@@ -43,8 +43,8 @@ def _paypal_form_args(upgrade_subscription=False, **kwargs):
 
     rv = settings.SUBSCRIPTION_PAYPAL_SETTINGS.copy()
     rv.update(
-#        notify_url = _url(reverse('paypal-ipn')),
-        notify_url = "http://98.110.156.2:2000/paypal/ipn/",
+        notify_url = _url(reverse('paypal-ipn')),
+#        notify_url = "http://98.110.156.2:2000/paypal/ipn/",
                return_url = _url(returl),
                cancel_return = _url(reverse("paypal:subscription_cancel")),
                **kwargs)
