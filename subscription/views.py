@@ -36,7 +36,7 @@ def _paypal_form_args(upgrade_subscription=False, **kwargs):
     "Return PayPal form arguments derived from kwargs."
     def _url(rel):
         if not rel.startswith('/'): rel = '/'+rel
-        return 'http://%s%s' % ( Site.objects.get_current().domain, rel )
+        return 'https://%s%s' % ( Site.objects.get_current().domain, rel )
 
     if upgrade_subscription: returl = reverse('paypal:subscription_change_done')
     else: returl = reverse('paypal:subscription_done')
