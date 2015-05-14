@@ -447,7 +447,7 @@ def handle_subscription_cancel(sender, **kwargs):
                     ).save()
         signals.event.send(s, ipn=sender, subscription=s, user=u, event='unexpected_cancel')
 ipn_signals.subscription_cancel.connect(handle_subscription_cancel)
-ipn_signals.subscription_eot.connect(handle_subscription_cancel)
+#ipn_signals.subscription_eot.connect(handle_subscription_cancel)
 
 
 def handle_subscription_modify(sender, **kwargs):
