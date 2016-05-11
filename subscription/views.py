@@ -99,7 +99,7 @@ def subscription_list(request):
     except UserSubscription.DoesNotExist:
         us = None
 
-    return render_to_response('subscription/subscription_list.html', {"object_list" : Subscription.objects.all(), "us": us}, context_instance=RequestContext(request))
+    return render_to_response('subscription/subscription_list.html', {"object_list" : Subscription.objects.all().order_by('id'), "us": us}, context_instance=RequestContext(request))
 
 
 @login_required
@@ -113,7 +113,7 @@ def account(request):
     return render_to_response(
         'subscription/account.html',
         {
-            "object_list" : Subscription.objects.all(),
+            "object_list" : Subscription.objects.all().order_by('id'),
             "user_subscription": us,
             "cancel_url": cancel_url
         },
@@ -133,7 +133,7 @@ def subscribe(request):
     if us is not None:
         current_plan_price = us.subscription.price
 
-    return render_to_response('subscription/subscribe_form.html', {"object_list" : Subscription.objects.all(), "us": us, "current_plan_price": current_plan_price}, context_instance=RequestContext(request))
+    return render_to_response('subscription/subscribe_form.html', {"object_list" : Subscription.objects.all().order_by('id'), "us": us, "current_plan_price": current_plan_price}, context_instance=RequestContext(request))
 
 
 @login_required
