@@ -275,15 +275,18 @@ def _ipn_usersubscription(payment):
         def __init__(self, user, subscription):
             self.user = user
             self.subscription = subscription
-    try:
-        s = Subscription.objects.get(id=payment.item_number)
-    except Subscription.DoesNotExist:
-        s = None
 
     try:
         u = User.objects.get(id=payment.custom)
     except User.DoesNotExist:
         u = None
+
+    try:
+        s = Subscription.objects.get(id=payment.item_number)
+    #except Subscription.DoesNotExist:
+    #    s = None
+    except:
+        s = None
 
     if u and s:
         try:
@@ -293,6 +296,8 @@ def _ipn_usersubscription(payment):
             Transaction(user=u, subscription=s, ipn=payment,
                         event='new usersubscription', amount=payment.mc_gross
                         ).save()
+    elif u:
+        us = UserSubscription.objects.get(user=u)
     else:
         us = PseudoUS(user=u, subscription=s)
 
